@@ -88,6 +88,12 @@ export default function PangramGame() {
     return () => window.clearTimeout(timer);
   }, [save]);
 
+  useEffect(() => {
+    if (status?.type !== "error") return;
+    const timeout = window.setTimeout(() => setStatus(null), 1500);
+    return () => window.clearTimeout(timeout);
+  }, [status]);
+
   const baseOuterLetters = useMemo(() => {
     if (!puzzle) return [] as string[];
     return puzzle.letters.filter((letter) => letter !== puzzle.center);
@@ -158,23 +164,26 @@ export default function PangramGame() {
     }
 
     const wordScore = scoreWord(normalized, puzzle.letters);
-    const nextScore = save.state.score + wordScore;
     const isPangram = isPangramWord(normalized, puzzle.letters);
+    let appliedScore = save.state.score;
 
     updateSaveState((current) => {
-      const found = [...current.state.found, normalized].sort();
+      const previous = current.state;
+      const nextScore = previous.score + wordScore;
+      appliedScore = nextScore;
+      const found = [...previous.found, normalized].sort();
       const nextState = {
-        ...current.state,
+        ...previous,
         found,
         score: nextScore,
         hintTargetWord:
-          current.state.hintTargetWord && current.state.hintTargetWord === normalized
+          previous.hintTargetWord && previous.hintTargetWord === normalized
             ? null
-            : current.state.hintTargetWord,
+            : previous.hintTargetWord,
         hintLettersRevealed:
-          current.state.hintTargetWord && current.state.hintTargetWord === normalized
+          previous.hintTargetWord && previous.hintTargetWord === normalized
             ? 0
-            : current.state.hintLettersRevealed
+            : previous.hintLettersRevealed
       };
       return {
         ...current,
@@ -187,8 +196,8 @@ export default function PangramGame() {
     setAttempt("");
     setStatus({ type: isPangram ? "success" : "info", text: isPangram ? `Pangram! +${wordScore} points.` : `+${wordScore} points.` });
     triggerHaptic(isPangram ? "success" : "light", hapticsEnabled);
-    setHighScore((prev) => (prev !== null ? Math.max(prev, nextScore) : nextScore));
-    void recordScore(GAME_ID, nextScore);
+    setHighScore((prev) => (prev !== null ? Math.max(prev, appliedScore) : appliedScore));
+    void recordScore(GAME_ID, appliedScore);
   }, [attempt, save, puzzle, updateSaveState, hapticsEnabled]);
 
   const handleHint = useCallback(() => {
@@ -235,6 +244,41 @@ export default function PangramGame() {
     setAttempt("");
     setStatus({ type: "info", text: "Puzzle reset." });
   }, [puzzle, save]);
+
+  useEffect(() => {
+    if (!puzzle) return;
+
+    function handleKeydown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      const key = event.key;
+      if (key === 'Enter') {
+        event.preventDefault();
+        handleSubmit();
+        return;
+      }
+      if (key === 'Backspace') {
+        event.preventDefault();
+        handleDelete();
+        return;
+      }
+      if (key === 'Escape') {
+        event.preventDefault();
+        handleClear();
+        return;
+      }
+      const letter = key.toUpperCase();
+      if (puzzle.letters.includes(letter)) {
+        event.preventDefault();
+        handleAppend(letter);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [puzzle, handleAppend, handleDelete, handleClear, handleSubmit]);
 
   const handleNewDate = useCallback(
     (value: string) => {
@@ -296,7 +340,7 @@ export default function PangramGame() {
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(3, 68px)", gridTemplateRows: "repeat(3, 60px)" }}>
             <button
               type="button"
-              className="col-start-2 flex items-center justify-center rounded-full border border-accent/40 bg-accent text-background text-xl font-semibold"
+              className="col-start-2 row-start-2 flex items-center justify-center rounded-full border border-accent/40 bg-accent text-background text-xl font-semibold"
               onClick={() => handleAppend(puzzle?.center ?? "")}
             >
               {puzzle?.center ?? ""}
