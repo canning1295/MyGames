@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import HintButton from "@/components/HintButton";
 import { triggerHaptic } from "@/app/device/haptics";
@@ -37,6 +37,7 @@ function useSeedDate(): [string, (value: string) => void] {
 }
 
 export default function PangramGame() {
+  const navigate = useNavigate();
   const [seed, setSeed] = useSeedDate();
   const [puzzle, setPuzzle] = useState<PangramPuzzle | null>(null);
   const [save, setSave] = useState<PangramGameSave | null>(null);
@@ -53,7 +54,7 @@ export default function PangramGame() {
     } catch (error) {
       console.error(error);
       setPuzzle(null);
-      setStatus({ type: "error", text: "Could not build today’s puzzle." });
+      setStatus({ type: "error", text: "Could not build today's puzzle." });
     }
   }, [seed]);
 
@@ -154,12 +155,14 @@ export default function PangramGame() {
     if (save.state.found.includes(normalized)) {
       setStatus({ type: "error", text: "You already found that word." });
       triggerHaptic("error", hapticsEnabled);
+      setAttempt(""); // Clear guess on duplicate
       return;
     }
 
     if (!isValidWord(normalized, puzzle)) {
-      setStatus({ type: "error", text: "Not in today’s word list." });
+      setStatus({ type: "error", text: "Not in today's word list." });
       triggerHaptic("error", hapticsEnabled);
+      setAttempt(""); // Clear guess on invalid word
       return;
     }
 
@@ -224,7 +227,7 @@ export default function PangramGame() {
 
   const handleReset = useCallback(() => {
     if (!puzzle || !save) return;
-    const confirmReset = window.confirm("Reset today’s progress?");
+    const confirmReset = window.confirm("Reset today's progress?");
     if (!confirmReset) return;
 
     setSave((current) => {
@@ -244,6 +247,14 @@ export default function PangramGame() {
     setAttempt("");
     setStatus({ type: "info", text: "Puzzle reset." });
   }, [puzzle, save]);
+
+  const handleGoHome = useCallback(() => {
+    navigate("/");
+  }, [navigate]);
+
+  const handleCloseStatus = useCallback(() => {
+    setStatus(null);
+  }, []);
 
   useEffect(() => {
     if (!puzzle) return;
@@ -293,10 +304,20 @@ export default function PangramGame() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background text-foreground" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-6">
+      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
         <header className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
-            <h1 className="text-2xl font-semibold">Pangram</h1>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleGoHome}
+                className="rounded-full p-2 hover:bg-foreground/10 transition-colors"
+                aria-label="Go to home"
+              >
+                ←
+              </button>
+              <h1 className="text-2xl font-semibold">Pangram</h1>
+            </div>
             <input
               type="date"
               value={seed}
@@ -325,7 +346,7 @@ export default function PangramGame() {
         {status && (
           <div
             className={clsx(
-              "rounded-md px-3 py-2 text-sm",
+              "relative rounded-md px-3 py-2 text-sm pr-10",
               status.type === "error" && "bg-red-500/20 text-red-200",
               status.type === "success" && "bg-emerald-500/20 text-emerald-200",
               status.type === "info" && "bg-foreground/10",
@@ -333,6 +354,14 @@ export default function PangramGame() {
             )}
           >
             {status.text}
+            <button
+              type="button"
+              onClick={handleCloseStatus}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 hover:bg-white/20 focus:bg-white/20 focus:outline-none transition-colors"
+              aria-label="Close message"
+            >
+              ✕
+            </button>
           </div>
         )}
 
@@ -340,7 +369,7 @@ export default function PangramGame() {
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(3, 68px)", gridTemplateRows: "repeat(3, 60px)" }}>
             <button
               type="button"
-              className="col-start-2 row-start-2 flex items-center justify-center rounded-full border border-accent/40 bg-accent text-background text-xl font-semibold"
+              className="col-start-2 row-start-2 flex items-center justify-center rounded-full border border-accent/40 bg-accent text-background text-xl font-semibold hover:bg-accent/90 active:scale-95 transition-all"
               onClick={() => handleAppend(puzzle?.center ?? "")}
             >
               {puzzle?.center ?? ""}
@@ -350,7 +379,7 @@ export default function PangramGame() {
                 key={letter}
                 type="button"
                 className={clsx(
-                  "flex items-center justify-center rounded-full border border-foreground/20 bg-foreground/10 text-lg font-semibold",
+                  "flex items-center justify-center rounded-full border border-foreground/20 bg-foreground/10 text-lg font-semibold hover:bg-foreground/20 active:scale-95 transition-all",
                   index === 0 && "col-start-1 row-start-1",
                   index === 1 && "col-start-3 row-start-1",
                   index === 2 && "col-start-1 row-start-2",
@@ -368,24 +397,45 @@ export default function PangramGame() {
 
         <section className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <div className="flex-1 rounded-md border border-foreground/20 bg-foreground/5 px-3 py-3 text-lg tracking-[0.2em]">
-              {attempt || ""}
+            <div className="flex-1 rounded-md border border-foreground/20 bg-foreground/5 px-3 py-3 text-lg tracking-[0.2em] min-h-[3rem] flex items-center">
+              {attempt || <span className="text-foreground/40">Enter letters...</span>}
             </div>
           </div>
-          <div className="flex gap-2">
-            <button type="button" onClick={handleSubmit} className="flex-1 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-background">
+          <div className="flex gap-2 flex-wrap">
+            <button 
+              type="button" 
+              onClick={handleSubmit} 
+              disabled={!attempt}
+              className="flex-1 min-w-[100px] rounded-md bg-accent px-3 py-2 text-sm font-semibold text-background hover:bg-accent/90 disabled:bg-foreground/20 disabled:text-foreground/50 transition-colors"
+            >
               Submit
             </button>
-            <button type="button" onClick={handleDelete} className="rounded-md border border-foreground/20 px-3 py-2 text-sm">
+            <button 
+              type="button" 
+              onClick={handleDelete} 
+              className="rounded-md border border-foreground/20 px-3 py-2 text-sm hover:bg-foreground/10 transition-colors"
+            >
               Delete
             </button>
-            <button type="button" onClick={handleClear} className="rounded-md border border-foreground/20 px-3 py-2 text-sm">
+            <button 
+              type="button" 
+              onClick={handleClear} 
+              className="rounded-md border border-foreground/20 px-3 py-2 text-sm hover:bg-foreground/10 transition-colors"
+            >
               Clear
             </button>
-            <button type="button" onClick={handleShuffle} className="rounded-md border border-foreground/20 px-3 py-2 text-sm">
+            <button 
+              type="button" 
+              onClick={handleShuffle} 
+              className="rounded-md border border-foreground/20 px-3 py-2 text-sm hover:bg-foreground/10 transition-colors"
+            >
               Shuffle
             </button>
-            <button type="button" onClick={handleReset} className="rounded-md border border-foreground/20 px-3 py-2 text-sm">
+            <button 
+              type="button" 
+              onClick={handleReset} 
+              className="rounded-md border border-foreground/20 px-3 py-2 text-sm hover:bg-foreground/10 transition-colors"
+            >
               Reset
             </button>
           </div>
@@ -396,7 +446,12 @@ export default function PangramGame() {
           {save && save.state.found.length > 0 ? (
             <ul className="grid grid-cols-2 gap-1 text-sm text-foreground/80">
               {save.state.found.map((word) => (
-                <li key={word}>{word}</li>
+                <li key={word} className="py-1 px-2 rounded bg-foreground/5">
+                  {word}
+                  {puzzle?.pangrams.includes(word) && (
+                    <span className="ml-2 text-xs text-yellow-400">★</span>
+                  )}
+                </li>
               ))}
             </ul>
           ) : (
