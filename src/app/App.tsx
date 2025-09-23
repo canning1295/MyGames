@@ -46,15 +46,20 @@ export default function App() {
     };
   }, []);
 
+  const router = useMemo(() => {
+    if (!modules) {
+      return null;
+    }
+    return buildRouter(modules);
+  }, [modules]);
+
   if (error) {
     return <SplashScreen message={error.message} />;
   }
 
-  if (!modules) {
+  if (!router) {
     return <SplashScreen message="Loading games" />;
   }
-
-  const router = useMemo(() => buildRouter(modules), [modules]);
 
   return (
     <GameModulesProvider modules={modules}>
