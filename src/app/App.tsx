@@ -1,0 +1,64 @@
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { RouterProvider, createBrowserRouter } from "react-router-dom";
+import type { GameModule } from "@/core/game-types";
+import { loadAllModules } from "@/core/games-registry";
+import { GameModulesProvider } from "./modules-context";
+import Home from "./Home";
+import Settings from "./Settings";
+import SplashScreen from "./SplashScreen";
+
+function buildRouter(modules: GameModule[]) {
+  return createBrowserRouter([
+    { path: "/", element: <Home /> },
+    { path: "/settings", element: <Settings /> },
+    ...modules.map((module) => ({
+      path: `/${module.meta.id}/*`,
+      element: (
+        <Suspense fallback={<SplashScreen message={`Loading ${module.meta.title}`} />}>
+          <module.mount />
+        </Suspense>
+      ),
+      children: module.routes?.map((route) => ({ ...route })) ?? []
+    }))
+  ]);
+}
+
+export default function App() {
+  const [modules, setModules] = useState<GameModule[] | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadAllModules()
+      .then((resolved) => {
+        if (!cancelled) {
+          setModules(resolved);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        if (!cancelled) {
+          setError(err instanceof Error ? err : new Error("Failed to load games"));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (error) {
+    return <SplashScreen message={error.message} />;
+  }
+
+  if (!modules) {
+    return <SplashScreen message="Loading games" />;
+  }
+
+  const router = useMemo(() => buildRouter(modules), [modules]);
+
+  return (
+    <GameModulesProvider modules={modules}>
+      <RouterProvider router={router} />
+    </GameModulesProvider>
+  );
+}
