@@ -26,3 +26,13 @@ interface PangramState {
 ```
 
 Saves are stored as `GameSave` entries with `version = 1` and include a per-puzzle `lastPlayedISO` timestamp.
+
+## Word list provenance
+
+Puzzles are generated from the [open-source word list](https://github.com/ConorSheehan1/spelling-bee) maintained by Conor Sheehan's Spelling Bee clone. The source list is filtered to words that:
+
+- contain only alphabetic characters,
+- are at least four letters long, and
+- are uppercased for consistent comparisons.
+
+Run `node scripts/update-pangram-wordlist.mjs` to refresh the local JSON list (internet access required). The helper script downloads the latest list and rewrites `wordlist.json` in a sorted, de-duplicated format.
