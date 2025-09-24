@@ -6,6 +6,8 @@ import { GameModulesProvider } from "./modules-context";
 import Home from "./Home";
 import Settings from "./Settings";
 import SplashScreen from "./SplashScreen";
+import { useThemeSync } from "./useThemeSync";
+import { useSettingsStore } from "./store/settings";
 
 function buildRouter(modules: GameModule[]) {
   return createBrowserRouter([
@@ -24,8 +26,14 @@ function buildRouter(modules: GameModule[]) {
 }
 
 export default function App() {
+  useThemeSync();
+  const hydrateSettings = useSettingsStore((state) => state.hydrate);
   const [modules, setModules] = useState<GameModule[] | null>(null);
   const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    void hydrateSettings();
+  }, [hydrateSettings]);
 
   useEffect(() => {
     let cancelled = false;

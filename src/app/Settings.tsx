@@ -39,6 +39,7 @@ export default function Settings() {
                 key={option}
                 type="button"
                 onClick={() => setTheme(option)}
+                aria-pressed={theme === option}
                 className={`rounded-md px-4 py-2 text-sm capitalize ${theme === option ? "bg-accent text-background" : "border border-foreground/20"}`}
               >
                 {option}
