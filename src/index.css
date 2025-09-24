@@ -3,9 +3,27 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: light dark;
+  --color-background: 248 250 252;
+  --color-foreground: 15 23 42;
+  --color-accent: 14 116 144;
+}
+
+:root[data-theme="light"] {
+  --color-background: 248 250 252;
+  --color-foreground: 15 23 42;
+}
+
+:root[data-theme="dark"] {
   --color-background: 15 23 42;
   --color-foreground: 226 232 240;
-  --color-accent: 14 116 144;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: 15 23 42;
+    --color-foreground: 226 232 240;
+  }
 }
 
 body {
